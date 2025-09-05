@@ -118,7 +118,7 @@ and providing a consolidated view of inventory across all locations.
 **Products Endpoints**
 
 |    Resource    |    Operation    |  HTTP Method  |     URI     |  Request Body  |        Success Response          |       Error Response      |
-|----------------|-----------------|---------------|-------------|----------------|----------------------------------|---------------------------|
+|:--------------:|:---------------:|:-------------:|:-----------:|:--------------:|:--------------------------------:|:-------------------------:|
 |   Products     |  List Products  |     `GET`     | `/products` |        -       |`200 OK`(Array of Product objects)|`500 Internal Server Error`|
 |                |  Greate Product |     `POST`    | `/products` |Product object (without id)|`201 Created` (Created Product object)|`400 Bad Request` (Validation error), `409 Conflict` (SKU exists)|
 |    Product     |   Get Product   |      `GET`    |`/products/{productId}`|       -      | `200 OK` (Product object) |   `404 Not Found`        |
