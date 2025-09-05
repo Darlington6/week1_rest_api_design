@@ -62,6 +62,7 @@ and providing a consolidated view of inventory across all locations.
 
 - **Constraints**: `sku` must be unique across the system.
 
+
 **Resource**: `Category`
 - **Description**: A logical group for organizing products (e.g., "Grains", "Mobile Phones", etc.).
 
@@ -76,6 +77,7 @@ and providing a consolidated view of inventory across all locations.
 
 - **Relationships**:
     - One-to-Many with `Product`.
+
 
 **Resource**: `Supplier`
 - **Description**: A company or entity that provides products to the business.
@@ -94,6 +96,7 @@ and providing a consolidated view of inventory across all locations.
 - **Relationships**:
     - One-to-Many with `Product`.
 
+
 **Resource**: `Location`
 - **Description**: A physical store or warehouse where inventory is held.
 
@@ -109,3 +112,21 @@ and providing a consolidated view of inventory across all locations.
 
 - **Relationships**:
     - Many-to-Many with `Product` (via the `inventory` sub-resource).
+
+
+## 3. Complete Endpoint Specification
+**Products Endpoints**
+
+|    Resource    |    Operation    |  HTTP Method  |     URI     |  Request Body  |        Success Response          |       Error Response      |
+|----------------|-----------------|---------------|-------------|----------------|----------------------------------|---------------------------|
+|   Products     |  List Products  |     `GET`     | `/products` |        -       |`200 OK`(Array of Product objects)|`500 Internal Server Error`|
+|                |  Greate Product |     `POST`    | `/products` |Product object (without id)|`201 Created` (Created Product object)|`400 Bad Request` (Validation error), `409 Conflict` (SKU exists)|
+|    Product     |   Get Product   |      `GET`    |`/products/{productId}`|       -      | `200 OK` (Product object) |   `404 Not Found`        |
+|                |  Update Product |      `PUT`    |`/products/{productId}`|Product object (full update)|`200 OK` (Updated Product object)|`400 Bad Request`, `404 Not Found`|
+|                |  Delete Product |    `DELETE`   |`/products/{productId}`|       -      |      `204 No Content`     |      `404 Not Found`     |
+
+**Query Parameters for** `GET /products`:
+
+- `categoryId`: Filter products by category.
+- `supplierId`: Filter products by supplier.
+- `page`, `limit`: For pagination.
