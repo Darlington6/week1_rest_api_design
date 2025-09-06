@@ -130,3 +130,14 @@ and providing a consolidated view of inventory across all locations.
 - `categoryId`: Filter products by category.
 - `supplierId`: Filter products by supplier.
 - `page`, `limit`: For pagination.
+
+
+**Categories Endpoints**
+
+|    Resource    |    Operation    |  HTTP Method  |     URI     |  Request Body  |        Success Response          |       Error Response      |
+|:--------------:|:---------------:|:-------------:|:-----------:|:--------------:|:--------------------------------:|:-------------------------:|
+|   Categories   | List Categories |     `GET`     |`/categories`|        -       |`200 OK`(Array of Category objects)|`500 Internal Server Error`|
+|                | Greate Category |     `POST`    |`/categories`|Category object (without id)|`201 Created` (Created Category object)|`400 Bad Request`|
+|   Category     |  Get Category   |    `GET`    |`/categories/{categoryId}`|       -      | `200 OK` (Category object) |  `404 Not Found`        |
+|                | Update Category |     `PUT`   |`/categories/{categoryId}`|Category object (full update)|`200 OK` (Updated Category object)|`400 Bad Request`, `404 Not Found`|
+|                | Delete Category |    `DELETE` |`/categories/{categoryId}`|       -      |    `204 No Content`   |    `404 Not Found`, `409 Conflict` (if category has products)   |
