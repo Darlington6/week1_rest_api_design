@@ -141,3 +141,12 @@ and providing a consolidated view of inventory across all locations.
 |   Category     |  Get Category   |    `GET`    |`/categories/{categoryId}`|       -      | `200 OK` (Category object) |  `404 Not Found`        |
 |                | Update Category |     `PUT`   |`/categories/{categoryId}`|Category object (full update)|`200 OK` (Updated Category object)|`400 Bad Request`, `404 Not Found`|
 |                | Delete Category |    `DELETE` |`/categories/{categoryId}`|       -      |    `204 No Content`   |    `404 Not Found`, `409 Conflict` (if category has products)   |
+
+**Inventory Sub-Resource Endpoints (Linking Products & Locations)**
+
+|    Resource    |    Operation    |  HTTP Method  |     URI     |  Request Body  |        Success Response          |       Error Response      |
+|:--------------:|:---------------:|:-------------:|:-----------:|:--------------:|:--------------------------------:|:-------------------------:|
+|Location Inventory|Get Stock Level|     `GET`     |`/products/{productId}/inventory/{locationId}`|        -       |`200 OK``{ productId, locationId, quantity }`|`404 Not Found`|
+|                |Update Stock Level|     `PUT`    |`/products/{productId}/inventory/{locationId}`|`{ quantity: 55 }`|`200 OK` (Updated inventory object)|`400 Bad Request`, `404 Not Found`|
+|Product Inventory|List All Stock|   `GET`   |`/products/{productId}/inventory`|       -      | `200 OK` (Array of {locationId, quantity, locationName}) |   `404 Not Found`(if product not found)   |
+| Location Stock |List All Products|      `GET`    |`/locations/{locationId}/inventory`|   -   |`200 OK` (Array of `{productId, quantity, productName}`)|`404 Not Found` (if location not found)|
