@@ -148,6 +148,22 @@ and providing a consolidated view of inventory across all locations.
 |                | Delete Category |    `DELETE` |`/categories/{categoryId}`|       -      |    `204 No Content`   |    `404 Not Found`, `409 Conflict` (if category has products)   |
 
 
+**Suppliers Endpoints**
+
+
+|    Resource    |    Operation    |  HTTP Method  |     URI     |  Request Body  |        Success Response          |       Error Response      |
+|:--------------:|:---------------:|:-------------:|:-----------:|:--------------:|:--------------------------------:|:-------------------------:|
+|  Suppliers     | List Suppliers  |     `GET`     |`/suppliers` |        -       |`200 OK`(Array of Supplier objects)|`500 Internal Server Error`|
+|                | Greate Supplier |     `POST`    |`/suppliers` |Supplier object (without id)|`201 Created` (Created Supplier object)|`400 Bad Request` (Validation error)|
+|   Supplier     |   Get Supplier  |      `GET`    |`/suppliers/{supplierId}`|       -      | `200 OK` (Supplier object) |  `404 Not Found`    |
+|                | Update Supplier |      `PUT`    |`/suppliers/{supplierId}`|Supplier object (full update)|`200 OK` (Updated Supplier object)|`400 Bad Request`, `404 Not Found`|
+|                | Delete Supplier |    `DELETE`   |`/suppliers/{supplierId}`|       -      |      `204 No Content`     |      `404 Not Found`, `409 Conflict` (if supplier has associated products)     |
+
+**Query Parameters for** `GET /suppliers`:
+
+- `page`, `limit`: For pagination.
+
+
 **Inventory Sub-Resource Endpoints (Linking Products & Locations)**
 
 
@@ -180,3 +196,23 @@ and providing a consolidated view of inventory across all locations.
     - **Request Body**: `{ productId, fromLocationId, toLocationId, quantity }`
     - **Logic**: Atomically decreases stock at `fromLocationId` and increases it at `toLocationId`.
     - **Error**: `400 Bad Request` if `fromLocation` has insufficient stock.
+
+---
+## 5. Design Rationale
+1. **Resource Modeling**: The `inventory` is modeled as a sub-resource of a `Product` because a stock level has no meaning without its associated 
+product and location. This leads to intuitive URIs like `/products/{id}/inventory`.
+
+2. **HTTP Methods**: Strict adherence to REST semantics: `POST` for creation, `GET` for retrieval, `PUT` for full updates, and `DELETE` for 
+removal. `PATCH` was avoided for simplicity in this initial version.
+
+3. **Status Codes**: Meaningful codes are used: `201 Created` upon successful creation, `204 No Content` for successful deletions (no content to 
+return), and `409 Conflict` for unique constraint violations, providing clear signals to the client. `409 Conflict` is a critical business rule. 
+For example, a supplier cannot be deleted if there are still products associated with it in the system. This prevents orphaned records and 
+maintains referential integrity. The API should respond with a clear error message in the response body, e.g., `{"error": "Cannot delete supplier; 
+one or more products are still associated."}`
+
+4. **Multi-Location Focus**: The entire design is built around the core requirement of managing inventory across multiple `Location` resources, 
+which is a common and critical need for growing African retail businesses.
+
+5. **Filtering & Search**: The advanced features like `lowStock=true` and the dedicated search endpoint are designed directly from user stories,
+ensuring the API solves real business problems like identifying items for restocking or quickly finding products.
