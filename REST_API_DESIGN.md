@@ -117,6 +117,7 @@ and providing a consolidated view of inventory across all locations.
 ## 3. Complete Endpoint Specification
 **Products Endpoints**
 
+
 |    Resource    |    Operation    |  HTTP Method  |     URI     |  Request Body  |        Success Response          |       Error Response      |
 |:--------------:|:---------------:|:-------------:|:-----------:|:--------------:|:--------------------------------:|:-------------------------:|
 |   Products     |  List Products  |     `GET`     | `/products` |        -       |`200 OK`(Array of Product objects)|`500 Internal Server Error`|
@@ -124,6 +125,7 @@ and providing a consolidated view of inventory across all locations.
 |    Product     |   Get Product   |      `GET`    |`/products/{productId}`|       -      | `200 OK` (Product object) |   `404 Not Found`        |
 |                |  Update Product |      `PUT`    |`/products/{productId}`|Product object (full update)|`200 OK` (Updated Product object)|`400 Bad Request`, `404 Not Found`|
 |                |  Delete Product |    `DELETE`   |`/products/{productId}`|       -      |      `204 No Content`     |      `404 Not Found`     |
+
 
 **Query Parameters for** `GET /products`:
 
@@ -134,6 +136,7 @@ and providing a consolidated view of inventory across all locations.
 
 **Categories Endpoints**
 
+
 |    Resource    |    Operation    |  HTTP Method  |     URI     |  Request Body  |        Success Response          |       Error Response      |
 |:--------------:|:---------------:|:-------------:|:-----------:|:--------------:|:--------------------------------:|:-------------------------:|
 |   Categories   | List Categories |     `GET`     |`/categories`|        -       |`200 OK`(Array of Category objects)|`500 Internal Server Error`|
@@ -142,11 +145,36 @@ and providing a consolidated view of inventory across all locations.
 |                | Update Category |     `PUT`   |`/categories/{categoryId}`|Category object (full update)|`200 OK` (Updated Category object)|`400 Bad Request`, `404 Not Found`|
 |                | Delete Category |    `DELETE` |`/categories/{categoryId}`|       -      |    `204 No Content`   |    `404 Not Found`, `409 Conflict` (if category has products)   |
 
+
 **Inventory Sub-Resource Endpoints (Linking Products & Locations)**
+
 
 |    Resource    |    Operation    |  HTTP Method  |     URI     |  Request Body  |        Success Response          |       Error Response      |
 |:--------------:|:---------------:|:-------------:|:-----------:|:--------------:|:--------------------------------:|:-------------------------:|
 |Location Inventory|Get Stock Level|     `GET`     |`/products/{productId}/inventory/{locationId}`|        -       |`200 OK``{ productId, locationId, quantity }`|`404 Not Found`|
-|                |Update Stock Level|     `PUT`    |`/products/{productId}/inventory/{locationId}`|`{ quantity: 55 }`|`200 OK` (Updated inventory object)|`400 Bad Request`, `404 Not Found`|
+|                |Update Stock Level|     `PUT`    |`/products/{productId}/inventory/{locationId}`|`{ quantity: 66 }`|`200 OK` (Updated inventory object)|`400 Bad Request`, `404 Not Found`|
 |Product Inventory|List All Stock|   `GET`   |`/products/{productId}/inventory`|       -      | `200 OK` (Array of {locationId, quantity, locationName}) |   `404 Not Found`(if product not found)   |
 | Location Stock |List All Products|      `GET`    |`/locations/{locationId}/inventory`|   -   |`200 OK` (Array of `{productId, quantity, productName}`)|`404 Not Found` (if location not found)|
+
+
+## 4. Advanced API Features
+**1. Association Endpoints**
+- `GET /categories/{categoryId}/products`: Retrieves all products belonging to a specific category. Supports pagination and filtering.
+
+- `GET /suppliers/{supplierId}/products`: Retrieves all products provided by a specific supplier.
+
+**2. Bulk Operations**
+- `POST /inventory/bulk-update`: Allows updating stock levels for multiple product-location pairs in a single atomic request to prevent race conditions.
+    - **Request Body**: `[ { productId, locationId, quantity }, ... ]`
+    - **Response**: `207 Multi-Status` with individual statuses for each update.
+
+**3. Search & Filtering**
+- `GET /products/search?q={query}`: A global product search endpoint that searches through product `name`, `description`, and `sku` fields.
+
+- `GET /products?lowStock=true`: A special filter parameter on the list products endpoint to only return products with a stock level below a defined threshold at any location. This is crucial for restocking alerts.
+
+**4. Domain-Specific Operation**
+- `POST /inventory/transfer`: Facilitates transferring stock between two locations (e.g., from a central warehouse to a store).
+    - **Request Body**: `{ productId, fromLocationId, toLocationId, quantity }`
+    - **Logic**: Atomically decreases stock at `fromLocationId` and increases it at `toLocationId`.
+    - **Error**: `400 Bad Request` if `fromLocation` has insufficient stock.
