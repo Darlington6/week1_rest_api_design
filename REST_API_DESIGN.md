@@ -8,6 +8,7 @@ structured to support core inventory operations for products, categories, suppli
 consideration given to the specific needs of multi-location retail management, such as tracking stock levels 
 across different stores.
 
+---
 ## 1. Business Domain Analysis
 The core business domain of InventoryPro revolves around tracking inventory across multiple physical locations. 
 The primary entities were identified by analyzing the key nouns and operations in a typical inventory workflow:
@@ -37,6 +38,7 @@ separate `inventory` resource.
 that, it must efficiently handle checking and updating stock levels, filtering products by category or supplier, 
 and providing a consolidated view of inventory across all locations.
 
+---
 ## 2. Resource Architecture Design
 **Resource**: `Product`
 - **Description**: A unique item available for sale across one or more locations.
@@ -113,7 +115,7 @@ and providing a consolidated view of inventory across all locations.
 - **Relationships**:
     - Many-to-Many with `Product` (via the `inventory` sub-resource).
 
-
+---
 ## 3. Complete Endpoint Specification
 **Products Endpoints**
 
@@ -156,7 +158,7 @@ and providing a consolidated view of inventory across all locations.
 |Product Inventory|List All Stock|   `GET`   |`/products/{productId}/inventory`|       -      | `200 OK` (Array of {locationId, quantity, locationName}) |   `404 Not Found`(if product not found)   |
 | Location Stock |List All Products|      `GET`    |`/locations/{locationId}/inventory`|   -   |`200 OK` (Array of `{productId, quantity, productName}`)|`404 Not Found` (if location not found)|
 
-
+---
 ## 4. Advanced API Features
 **1. Association Endpoints**
 - `GET /categories/{categoryId}/products`: Retrieves all products belonging to a specific category. Supports pagination and filtering.
