@@ -1,218 +1,328 @@
 # InventoryPro - REST API Design Document
 
 ## Executive Summary
-This document outlines the RESTful API architecture for InventoryPro, an inventory management system designed for 
-African retail businesses. The design prioritizes simplicity, intuitiveness, and scalability, adhering to REST 
-conventions with resource-oriented endpoints, proper HTTP semantics, and consistent error handling. The API is 
-structured to support core inventory operations for products, categories, suppliers, and locations, with careful 
-consideration given to the specific needs of multi-location retail management, such as tracking stock levels 
-across different stores.
+
+**Context**: InventoryPro is an API-driven inventory management system designed for African retail businesses operating across multiple physical locations. The primary clients are a modern web dashboard for managers and a mobile application for floor staff to perform stock checks and updates.
+
+**Approach**: This design follows a strict resource-oriented REST architecture. It uses HTTP methods semantically, JSON for data exchange, and standard HTTP status codes. The initial version is placed under a `/v1` path prefix for clear versioning. The design prioritizes clarity, predictability, and robustness for client developers.
+
+**Scope**: This document covers the identification and modeling of four core resources (products, categories, suppliers, locations) and their relationships. It provides full CRUD endpoint specifications, a consistent error handling model, and designs for pagination, filtering, and key domain-specific operations like stock transfer and low-stock alerts.
 
 ---
-## 1. Business Domain Analysis
-The core business domain of InventoryPro revolves around tracking inventory across multiple physical locations. 
-The primary entities were identified by analyzing the key nouns and operations in a typical inventory workflow:
 
-1. **Product**: The central entity. Represents a sellable item with a unique Stock Keeping Unit (SKU). Its 
-attributes and stock levels are the primary data points.
+## Business Domain Analysis
 
-2. **Category**: A logical grouping mechanism for products (e.g., "Electronics," "Food & Beverage," "Clothing," 
-etc.). This enables organized browsing and reporting.
+**Business Goals**
 
-3. **Supplier**: The source from which products are procured. Critical for managing supply chains, reordering, and 
-cost analysis.
+- Reduce stock-out incidents by 25% within the first year of use.
+- Enable rapid onboarding of new suppliers and products into the system.
+- Provide accurate, real-time visibility of inventory levels across all store and warehouse locations.
+- Support efficient inventory auditing and reconciliation processes.
+- Facilitate data-driven decisions on restocking and product placement.
 
-4. **Location**: Represents a physical store or warehouse. This is a crucial differentiator, as stock levels are 
-specific to each location, enabling businesses to manage inventory across a network of stores.
+**Primary Entities (identification & justification)**
 
-**Key Relationships**:
+- **Product**: The central entity of the entire system. It represents a unique, sellable item. Accurate product data is critical for all business operations, from sales to supply chain management.
+- **Category**: A logical grouping entity. Categories are essential for organizing thousands of products, enabling efficient browsing, filtering, and generating structured reports (e.g., "sales performance in the Electronics category").
+- **Supplier**: A partner entity representing the source of products. Managing supplier data is vital for procurement, cost analysis, and building resilient supply chains, which is a key challenge for retailers.
+- **Location**: A physical place entity. This is non-negotiable for businesses with more than one store or a warehouse. Inventory levels are meaningless without being tied to a specific location, making this a core entity.
 
-- A **Category** contains many **Products** (One-to-Many).
+**Key Relationships (narrative)**
 
-- A **Supplier** provides many **Products** (One-to-Many).
+- A Product must belong to exactly one Category (e.g., a Samsung phone belongs to "Electronics").
+- A Product is sourced from one primary Supplier.
+- A Product can be stocked in multiple Locations (e.g., a product can be in both the Accra and Kumasi stores).
+- Conversely, a Location contains stock for many Products. This is a many-to-many relationship.
 
-- A **Product** has a stock level at many **Locations** (Many-to-Many). This relationship is managed through a 
-separate `inventory` resource.
+**Critical Operations (verbs in business language)**
 
-**Critical Operations**: The API must support full CRUD (Create, Read, Update, Delete) for all entities. Beyond 
-that, it must efficiently handle checking and updating stock levels, filtering products by category or supplier, 
-and providing a consolidated view of inventory across all locations.
+- Onboard new products and suppliers.
+- Adjust stock levels up (after new shipment) or down (after a sale).
+- Transfer stock between locations to balance inventory.
+- Search and filter products by various criteria.
+- Identify products that are low in stock or out of stock.
 
----
-## 2. Resource Architecture Design
-**Resource**: `Product`
-- **Description**: A unique item available for sale across one or more locations.
+**Data Requirements (high-level)**
 
-- **Purpose**: To represent all sellable inventory items and their universal attributes.
-
-- **Attributes**:
-    - `id` (string, UUID) - Unique system identifier.
-    - `sku` (string) - Unique stock-keeping unit, required.
-    - `name` (string) - Human-readable product name, required.
-    - `description` (string) - Detailed product information.
-    - `price` (number) - Current selling price.
-    - `cost` (number) - Procurement cost from the supplier.
-    - `categoryId` (string, UUID) - Reference to the product's category.
-    - `supplierId` (string, UUID) - Reference to the product's supplier.
-    - `isActive` (boolean) - Status flag/soft delete.
-    - `createdAt` (string, ISO timestamp) - Audit field.
-    - `updatedAt` (string, ISO timestamp) - Audit field.
-
-- **Relationships**:
-    - Many-to-One with `Category` and `Supplier`.
-    - Many-to-Many with `Location` (via the `inventory` sub-resource).
-
-- **Constraints**: `sku` must be unique across the system.
-
-
-**Resource**: `Category`
-- **Description**: A logical group for organizing products (e.g., "Grains", "Mobile Phones", etc.).
-
-- **Purpose**: To enable filtered product discovery and organized management.
-
-- **Attributes**:
-    - `id` (string, UUID) - Unique identifier.
-    - `name` (string) - Category name, required, must be unique.
-    - `description` (string) - Purpose of the category.
-    - `createdAt` (string, ISO timestamp)
-    - `updatedAt` (string, ISO timestamp)
-
-- **Relationships**:
-    - One-to-Many with `Product`.
-
-
-**Resource**: `Supplier`
-- **Description**: A company or entity that provides products to the business.
-
-- **Purpose**: To manage vendor information and relationships.
-
-- **Attributes**:
-    - `id` (string, UUID) - Unique identifier.
-    - `name` (string) - Company name, required.
-    - `contactEmail` (string) - Primary contact email.
-    - `contactPhone` (string) - Primary contact phone number.
-    - `address` (object) - { street, city, country }.
-    - `createdAt` (string, ISO timestamp)
-    - `updatedAt` (string, ISO timestamp)
-
-- **Relationships**:
-    - One-to-Many with `Product`.
-
-
-**Resource**: `Location`
-- **Description**: A physical store or warehouse where inventory is held.
-
-- **Purpose**: To manage inventory levels across a business's physical presence.
-
-- **Attributes**:
-    - `id` (string, UUID) - Unique identifier.
-    - `name` (string) - Location name (e.g., "Lagos Main Store"), required.
-    - `address` (object) - { street, city, country }, required.
-    - `isActive` (boolean) - Whether the location is operational.
-    - `createdAt` (string, ISO timestamp)
-    - `updatedAt` (string, ISO timestamp)
-
-- **Relationships**:
-    - Many-to-Many with `Product` (via the `inventory` sub-resource).
+- **Product**: Unique identifier (SKU - Stock Keeping Unit), name, description, cost price, selling price, category, supplier.
+- **Category**: Name, description.
+- **Supplier**: Company name, contact information (email, phone), physical address.
+- **Location**: Store name, physical address, operational status.
 
 ---
-## 3. Complete Endpoint Specification
-**Products Endpoints**
 
+## Resource Specifications
 
-|    Resource    |    Operation    |  HTTP Method  |     URI     |  Request Body  |        Success Response          |       Error Response      |
-|:--------------:|:---------------:|:-------------:|:-----------:|:--------------:|:--------------------------------:|:-------------------------:|
-|   Products     |  List Products  |     `GET`     | `/products` |        -       |`200 OK`(Array of Product objects)|`500 Internal Server Error`|
-|                |  Greate Product |     `POST`    | `/products` |Product object (without id)|`201 Created` (Created Product object)|`400 Bad Request` (Validation error), `409 Conflict` (SKU exists)|
-|    Product     |   Get Product   |      `GET`    |`/products/{productId}`|       -      | `200 OK` (Product object) |   `404 Not Found`        |
-|                |  Update Product |      `PUT`    |`/products/{productId}`|Product object (full update)|`200 OK` (Updated Product object)|`400 Bad Request`, `404 Not Found`|
-|                |  Delete Product |    `DELETE`   |`/products/{productId}`|       -      |      `204 No Content`     |      `404 Not Found`     |
+### Resource: Product
 
+**Purpose**: Represents a unique, sellable item in the inventory. It holds the universal attributes of an item that are consistent across all locations where it is stocked.
 
-**Query Parameters for** `GET /products`:
+**Attributes**
 
-- `categoryId`: Filter products by category.
-- `supplierId`: Filter products by supplier.
-- `page`, `limit`: For pagination.
+| Attribute    | Type        | Required | Constraints/Format    | Notes                                   |
+|--------------|-------------|:--------:|-----------------------|-----------------------------------------|
+| id           | string/uuid |    ✓     | immutable             | Server-generated unique identifier      |
+| sku          | string      |    ✓     | 3-50 chars, alphanumeric | Unique across all products           |
+| name         | string      |    ✓     | 1-120 chars           |                                         |
+| description  | string      |          | 0-500 chars           |                                         |
+| price        | number      |    ✓     | positive              | Current selling price                   |
+| cost         | number      |          | positive              | Procurement cost from supplier          |
+| categoryId   | string/uuid |    ✓     |                       | Must reference an existing category     |
+| supplierId   | string/uuid |    ✓     |                       | Must reference an existing supplier     |
+| isActive     | boolean     |    ✓     |                       | Default: true (soft delete flag)        |
+| createdAt    | datetime    |    ✓     | ISO 8601              | Server-generated                        |
+| updatedAt    | datetime    |    ✓     | ISO 8601              | Server-generated                        |
 
+**Relationships**
 
-**Categories Endpoints**
+- Many-to-One with Category (via categoryId).
+- Many-to-One with Supplier (via supplierId).
+- Many-to-Many with Location. This relationship is managed through an inventory association resource that tracks the quantity at each location.
 
+**Business Rules & Constraints**
 
-|    Resource    |    Operation    |  HTTP Method  |     URI     |  Request Body  |        Success Response          |       Error Response      |
-|:--------------:|:---------------:|:-------------:|:-----------:|:--------------:|:--------------------------------:|:-------------------------:|
-|   Categories   | List Categories |     `GET`     |`/categories`|        -       |`200 OK`(Array of Category objects)|`500 Internal Server Error`|
-|                | Greate Category |     `POST`    |`/categories`|Category object (without id)|`201 Created` (Created Category object)|`400 Bad Request`|
-|   Category     |  Get Category   |    `GET`    |`/categories/{categoryId}`|       -      | `200 OK` (Category object) |  `404 Not Found`        |
-|                | Update Category |     `PUT`   |`/categories/{categoryId}`|Category object (full update)|`200 OK` (Updated Category object)|`400 Bad Request`, `404 Not Found`|
-|                | Delete Category |    `DELETE` |`/categories/{categoryId}`|       -      |    `204 No Content`   |    `404 Not Found`, `409 Conflict` (if category has products)   |
+- The `sku` must be unique across the entire system.
+- `price` must be greater than or equal to `cost`.
+- A product cannot be deleted if it has historical transactions or current stock; it must be soft-deleted (`isActive: false`).
 
+### Resource: Category
 
-**Suppliers Endpoints**
+**Purpose**: Provides a logical hierarchy for grouping products, making inventory easier to navigate and manage.
 
+**Attributes**
 
-|    Resource    |    Operation    |  HTTP Method  |     URI     |  Request Body  |        Success Response          |       Error Response      |
-|:--------------:|:---------------:|:-------------:|:-----------:|:--------------:|:--------------------------------:|:-------------------------:|
-|  Suppliers     | List Suppliers  |     `GET`     |`/suppliers` |        -       |`200 OK`(Array of Supplier objects)|`500 Internal Server Error`|
-|                | Greate Supplier |     `POST`    |`/suppliers` |Supplier object (without id)|`201 Created` (Created Supplier object)|`400 Bad Request` (Validation error)|
-|   Supplier     |   Get Supplier  |      `GET`    |`/suppliers/{supplierId}`|       -      | `200 OK` (Supplier object) |  `404 Not Found`    |
-|                | Update Supplier |      `PUT`    |`/suppliers/{supplierId}`|Supplier object (full update)|`200 OK` (Updated Supplier object)|`400 Bad Request`, `404 Not Found`|
-|                | Delete Supplier |    `DELETE`   |`/suppliers/{supplierId}`|       -      |      `204 No Content`     |      `404 Not Found`, `409 Conflict` (if supplier has associated products)     |
+| Attribute   | Type        | Required | Constraints/Format | Notes                              |
+|-------------|-------------|:--------:|--------------------|------------------------------------|
+| id          | string/uuid |    ✓     | immutable          | Server-generated unique identifier |
+| name        | string      |    ✓     | 1-60 chars         | Unique across all categories       |
+| description | string      |          | 0-255 chars        |                                    |
+| createdAt   | datetime    |    ✓     | ISO 8601           | Server-generated                   |
+| updatedAt   | datetime    |    ✓     | ISO 8601           | Server-generated                   |
 
-**Query Parameters for** `GET /suppliers`:
+**Relationships**
 
-- `page`, `limit`: For pagination.
+- One-to-Many with Product (a category has many products).
 
+**Business Rules & Constraints**
 
-**Inventory Sub-Resource Endpoints (Linking Products & Locations)**
+- The `name` must be unique.
+- A category cannot be deleted if it has products associated with it.
 
+### Resource: Supplier
 
-|    Resource    |    Operation    |  HTTP Method  |     URI     |  Request Body  |        Success Response          |       Error Response      |
-|:--------------:|:---------------:|:-------------:|:-----------:|:--------------:|:--------------------------------:|:-------------------------:|
-|Location Inventory|Get Stock Level|     `GET`     |`/products/{productId}/inventory/{locationId}`|        -       |`200 OK``{ productId, locationId, quantity }`|`404 Not Found`|
-|                |Update Stock Level|     `PUT`    |`/products/{productId}/inventory/{locationId}`|`{ quantity: 66 }`|`200 OK` (Updated inventory object)|`400 Bad Request`, `404 Not Found`|
-|Product Inventory|List All Stock|   `GET`   |`/products/{productId}/inventory`|       -      | `200 OK` (Array of {locationId, quantity, locationName}) |   `404 Not Found`(if product not found)   |
-| Location Stock |List All Products|      `GET`    |`/locations/{locationId}/inventory`|   -   |`200 OK` (Array of `{productId, quantity, productName}`)|`404 Not Found` (if location not found)|
+**Purpose**: Represents a vendor or provider from whom products are procured. Critical for managing the supply chain.
+
+**Attributes**
+
+| Attribute      | Type        | Required | Constraints/Format | Notes                              |
+|----------------|-------------|:--------:|--------------------|------------------------------------|
+| id             | string/uuid |    ✓     | immutable          | Server-generated unique identifier |
+| name           | string      |    ✓     | 1-120 chars        |                                    |
+| contactEmail   | string      |          | email format       |                                    |
+| contactPhone   | string      |          |                    |                                    |
+| addressStreet  | string      |          |                    |                                    |
+| addressCity    | string      |          |                    |                                    |
+| addressCountry | string      |          |                    |                                    |
+| createdAt      | datetime    |    ✓     | ISO 8601           | Server-generated                   |
+| updatedAt      | datetime    |    ✓     | ISO 8601           | Server-generated                   |
+
+**Relationships**
+
+- One-to-Many with Product (a supplier provides many products).
+
+**Business Rules & Constraints**
+
+- A supplier cannot be deleted if it has products associated with it.
+
+### Resource: Location
+
+**Purpose**: Represents a physical store or warehouse where inventory is stored and managed.
+
+**Attributes**
+
+| Attribute      | Type        | Required | Constraints/Format | Notes                              |
+|----------------|-------------|:--------:|--------------------|------------------------------------|
+| id             | string/uuid |    ✓     | immutable          | Server-generated unique identifier |
+| name           | string      |    ✓     | 1-120 chars        |                                    |
+| addressStreet  | string      |    ✓     |                    |                                    |
+| addressCity    | string      |    ✓     |                    |                                    |
+| addressCountry | string      |    ✓     |                    |                                    |
+| isActive       | boolean     |    ✓     |                    | Default: true                      |
+| createdAt      | datetime    |    ✓     | ISO 8601           | Server-generated                   |
+| updatedAt      | datetime    |    ✓     | ISO 8601           | Server-generated                   |
+
+**Relationships**
+
+- Many-to-Many with Product via the inventory association resource.
+
+**Business Rules & Constraints**
+
+- A location can be deactivated (`isActive: false`) but not deleted if it has historical inventory records.
 
 ---
-## 4. Advanced API Features
-**1. Association Endpoints**
-- `GET /categories/{categoryId}/products`: Retrieves all products belonging to a specific category. Supports pagination and filtering.
 
-- `GET /suppliers/{supplierId}/products`: Retrieves all products provided by a specific supplier.
+## Endpoint Documentation (CRUD)
 
-**2. Bulk Operations**
-- `POST /inventory/bulk-update`: Allows updating stock levels for multiple product-location pairs in a single atomic request to prevent race conditions.
-    - **Request Body**: `[ { productId, locationId, quantity }, ... ]`
-    - **Response**: `207 Multi-Status` with individual statuses for each update.
+**Conventions**
 
-**3. Search & Filtering**
-- `GET /products/search?q={query}`: A global product search endpoint that searches through product `name`, `description`, and `sku` fields.
+- Base path: `/v1`
+- Media type: `application/json; charset=utf-8`
+- Timestamps: ISO 8601 (UTC)
+- Pagination: `?page` & `?page_size` (default: page=1, page_size=25)
+- Filtering: `?field=value` (e.g., `?categoryId=uuid`, `?supplierId=uuid`)
+- Sorting: `?sort=field` (asc) or `?sort=-field` (desc) (e.g., `?sort=-createdAt`)
 
-- `GET /products?lowStock=true`: A special filter parameter on the list products endpoint to only return products with a stock level below a defined threshold at any location. This is crucial for restocking alerts.
+### Resource: Products
 
-**4. Domain-Specific Operation**
-- `POST /inventory/transfer`: Facilitates transferring stock between two locations (e.g., from a central warehouse to a store).
-    - **Request Body**: `{ productId, fromLocationId, toLocationId, quantity }`
-    - **Logic**: Atomically decreases stock at `fromLocationId` and increases it at `toLocationId`.
-    - **Error**: `400 Bad Request` if `fromLocation` has insufficient stock.
+| Resource | Operation        | HTTP   | URI                                   | Request Body                           | Success Response                    | Error Responses                        |
+|----------|------------------|--------|---------------------------------------|----------------------------------------|-------------------------------------|----------------------------------------|
+| Products | Create           | POST   | `/v1/products`                        | `{ "sku": "A123", "name": "Phone", ... }` | **201 Created**; body + Location header | **400** Bad Request, **409** Conflict (SKU) |
+| Products | Retrieve (list)  | GET    | `/v1/products?page=1&page_size=25`    | —                                      | **200 OK**; paginated list          | **400** Bad Request (invalid query)   |
+| Product  | Retrieve (by id) | GET    | `/v1/products/{id}`                   | —                                      | **200 OK**; single product          | **404** Not Found                     |
+| Product  | Update (full)    | PUT    | `/v1/products/{id}`                   | `{ "sku": "A123", "name": "Phone", ... }` | **200 OK**; updated product         | **400**, **404**, **409**             |
+| Product  | Update (partial) | PATCH  | `/v1/products/{id}`                   | `{ "price": 299.99 }`                 | **200 OK**; updated product         | **400**, **404**, **409**             |
+| Product  | Delete           | DELETE | `/v1/products/{id}`                   | —                                      | **204 No Content**                  | **404** Not Found                     |
+
+### Resource: Categories
+
+| Resource   | Operation        | HTTP   | URI                     | Request Body                      | Success Response            | Error Responses                                   |
+|------------|------------------|--------|-------------------------|-----------------------------------|-----------------------------|---------------------------------------------------|
+| Categories | Create           | POST   | `/v1/categories`        | `{ "name": "Electronics", ... }`  | **201 Created**             | **400** Bad Request                               |
+| Categories | Retrieve (list)  | GET    | `/v1/categories`        | —                                 | **200 OK**; list            | —                                                 |
+| Category   | Retrieve (by id) | GET    | `/v1/categories/{id}`   | —                                 | **200 OK**; single category | **404** Not Found                                 |
+| Category   | Update (full)    | PUT    | `/v1/categories/{id}`   | `{ "name": "Electronics", ... }`  | **200 OK**; updated category | **400**, **404**                                 |
+| Category   | Update (partial) | PATCH  | `/v1/categories/{id}`   | `{ "description": "New desc" }`   | **200 OK**; updated category | **400**, **404**                                 |
+| Category   | Delete           | DELETE | `/v1/categories/{id}`   | —                                 | **204 No Content**          | **404** Not Found, **409** Conflict (has products) |
+
+### Resource: Suppliers
+
+| Resource  | Operation        | HTTP   | URI                    | Request Body                         | Success Response           | Error Responses                                   |
+|-----------|------------------|--------|------------------------|--------------------------------------|----------------------------|---------------------------------------------------|
+| Suppliers | Create           | POST   | `/v1/suppliers`        | `{ "name": "Supplier Co", ... }`     | **201 Created**            | **400** Bad Request                               |
+| Suppliers | Retrieve (list)  | GET    | `/v1/suppliers`        | —                                    | **200 OK**; list           | —                                                 |
+| Supplier  | Retrieve (by id) | GET    | `/v1/suppliers/{id}`   | —                                    | **200 OK**; single supplier | **404** Not Found                                 |
+| Supplier  | Update (full)    | PUT    | `/v1/suppliers/{id}`   | `{ "name": "New Name", ... }`        | **200 OK**; updated supplier | **400**, **404**                                 |
+| Supplier  | Update (partial) | PATCH  | `/v1/suppliers/{id}`   | `{ "contactEmail": "new@email.com" }` | **200 OK**; updated supplier | **400**, **404**                                 |
+| Supplier  | Delete           | DELETE | `/v1/suppliers/{id}`   | —                                    | **204 No Content**         | **404** Not Found, **409** Conflict (has products) |
+
+### Resource: Locations
+
+| Resource  | Operation        | HTTP   | URI                    | Request Body                  | Success Response            | Error Responses                                  |
+|-----------|------------------|--------|------------------------|-------------------------------|-----------------------------|-------------------------------------------------|
+| Locations | Create           | POST   | `/v1/locations`        | `{ "name": "Lagos Store", ... }` | **201 Created**             | **400** Bad Request                              |
+| Locations | Retrieve (list)  | GET    | `/v1/locations`        | —                             | **200 OK**; list            | —                                               |
+| Location  | Retrieve (by id) | GET    | `/v1/locations/{id}`   | —                             | **200 OK**; single location | **404** Not Found                               |
+| Location  | Update (full)    | PUT    | `/v1/locations/{id}`   | `{ "name": "New Name", ... }` | **200 OK**; updated location | **400**, **404**                               |
+| Location  | Update (partial) | PATCH  | `/v1/locations/{id}`   | `{ "isActive": false }`       | **200 OK**; updated location | **400**, **404**                               |
+| Location  | Delete           | DELETE | `/v1/locations/{id}`   | —                             | **204 No Content**          | **404** Not Found, **409** Conflict (has history) |
 
 ---
-## 5. Design Rationale
-1. **Resource Modeling**: The `inventory` is modeled as a sub-resource of a `Product` because a stock level has no meaning without its associated 
-product and location. This leads to intuitive URIs like `/products/{id}/inventory`.
 
-2. **HTTP Methods**: Strict adherence to REST semantics: `POST` for creation, `GET` for retrieval, `PUT` for full updates, and `DELETE` for 
-removal. `PATCH` was avoided for simplicity in this initial version.
+## Advanced Features
 
-3. **Status Codes**: Meaningful codes are used: `201 Created` upon successful creation, `204 No Content` for successful deletions (no content to 
-return), and `409 Conflict` for unique constraint violations, providing clear signals to the client. `409 Conflict` is a critical business rule. 
-For example, a supplier cannot be deleted if there are still products associated with it in the system. This prevents orphaned records and 
-maintains referential integrity. The API should respond with a clear error message in the response body, e.g., `{"error": "Cannot delete supplier; 
-one or more products are still associated."}`
+### Associations & Views
 
-4. **Multi-Location Focus**: The entire design is built around the core requirement of managing inventory across multiple `Location` resources, 
-which is a common and critical need for growing African retail businesses.
+- **List products by category**: `GET /v1/categories/{categoryId}/products`
+- **List products by supplier**: `GET /v1/suppliers/{supplierId}/products`
+- **Get stock for a product**: `GET /v1/products/{productId}/inventory` (returns array of `{locationId, quantity, locationName}`)
+- **Get stock at a location**: `GET /v1/locations/{locationId}/inventory` (returns array of `{productId, quantity, productName}`)
+- **Update stock level**: `PUT /v1/products/{productId}/inventory/{locationId}` Body: `{ "quantity": 50 }`
 
-5. **Filtering & Search**: The advanced features like `lowStock=true` and the dedicated search endpoint are designed directly from user stories,
-ensuring the API solves real business problems like identifying items for restocking or quickly finding products.
+### Bulk Operations
+
+- **Bulk update inventory**: `POST /v1/inventory:batchUpdate`
+  - Body: `{ "updates": [ {"productId": "uuid", "locationId": "uuid", "quantity": 100}, ... ] }`
+  - Returns **207 Multi-Status** with outcomes for each update.
+
+### Search & Filtering
+
+- **Global product search**: `GET /v1/products/search?q=samsung` (searches name, description, sku)
+- **Low stock alert filter**: `GET /v1/products?lowStock=true` (returns products where quantity <= lowStockThreshold at any location)
+- **Filter products by category/supplier**: `GET /v1/products?categoryId=uuid&supplierId=uuid`
+
+### Domain-Specific Operations
+
+- **Stock Transfer**: `POST /v1/inventory/transfers`
+  - Body: `{ "productId": "uuid", "fromLocationId": "uuid", "toLocationId": "uuid", "quantity": 10 }`
+  - Atomically decreases stock at fromLocation and increases it at toLocation.
+  - Returns **201 Created** on success. Errors with **400 Bad Request** if insufficient stock.
+
+---
+
+## Error Handling & Problem Details
+
+**Error Response Envelope (RFC 7807-inspired)**
+
+```json
+{
+  "type": "/problems/invalid-request",
+  "title": "Your request parameters are invalid.",
+  "status": 400,
+  "detail": "The field 'sku' must be unique.",
+  "instance": "/v1/products",
+  "errors": [
+    { "field": "sku", "message": "must be unique", "value": "A123" }
+  ]
+}
+```
+
+**Common HTTP Status Codes:**
+
+- **400 Bad Request**: General validation failure (details in errors array).
+- **404 Not Found**: Resource does not exist.
+- **409 Conflict**: Violation of a business rule (e.g., duplicate SKU, deleting a resource in use).
+- **422 Unprocessable Entity**: Semantic validation error (e.g., insufficient stock for a transfer).
+
+---
+
+## Pagination & Query Conventions
+
+- **Strategy**: Page-based (`page` & `page_size`)
+- **Default page_size**: 25
+- **Max page_size**: 100
+
+**Paginated List Response Wrapper**
+
+```json
+{
+  "data": [ /* array of resource objects */ ],
+  "pagination": {
+    "page": 1,
+    "page_size": 25,
+    "total_records": 124,
+    "total_pages": 5
+  },
+  "links": {
+    "self": "/v1/products?page=1&page_size=25",
+    "first": "/v1/products?page=1&page_size=25",
+    "prev": null,
+    "next": "/v1/products?page=2&page_size=25",
+    "last": "/v1/products?page=5&page_size=25"
+  }
+}
+```
+
+---
+
+## Design Rationale
+
+- **Resource naming**: Plural kebab-case nouns (`/v1/products`). Clear and consistent.
+- **Versioning**: Path-based versioning (`/v1`). Simple, explicit, and easy to debug.
+- **Id strategy**: UUIDs for all resources. Opaque, globally unique, and avoids revealing business data or sequence.
+- **Consistency rules**: All timestamps are ISO 8601 in UTC. All id fields are UUIDs. Soft delete via `isActive` flag is preferred over hard delete.
+- **Security posture**: Assumes OAuth2 authentication will be implemented later. All endpoints require auth. No sensitive Personally Identifiable Informaton(PII) is stored in these core resources beyond business contact info.
+- **Trade-offs**: Chose PUT for full updates and PATCH for partial for flexibility, understanding it adds complexity for clients. The inventory sub-resource pattern was chosen over a top-level resource for more intuitive URIs.
+
+---
+
+## Appendix A — Glossary
+
+- **Resource**: An object with a type, associated data, and relationships to other resources. It is the fundamental concept in REST, accessible via a URI.
+- **Collection**: A server-managed directory of resources. Clients can create new resources in a collection (e.g., POST /v1/products adds to the products collection).
+- **Representation**: The current state of a resource, formatted in JSON for this API, delivered from server to client or vice versa.
+
+---
+
+## Appendix B — AI Usage Statement
+
+I used an AI assistant to clarify general REST principles, status code meanings, and Markdown structuring. I did **not** use AI to generate InventoryPro's resource designs, endpoint specifications, or business domain analysis. All domain modeling, attribute decisions, relationship mapping, and endpoint design in this document are my own, based on the provided business context and assignment requirements. The AI was used as a tool for formatting (e.g. grammar, layout, etc.) and ensuring technical accuracy of standard conventions, not for creative design work.
